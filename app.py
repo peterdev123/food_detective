@@ -17,6 +17,7 @@ class_names = [
 ]
 num_classes = len(class_names)
 
+# Create and load the model
 model = models.resnet50(pretrained=False)
 model.fc = nn.Sequential(
     nn.Linear(model.fc.in_features, 512),
@@ -24,10 +25,21 @@ model.fc = nn.Sequential(
     nn.Dropout(0.5),
     nn.Linear(512, num_classes)
 )
+
+# Load the state dictionary
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.load_state_dict(torch.load('AI/best_model.pth', map_location=device))
-model = model.to(device)
+
+# Quantize the model to 8-bit
+model = torch.quantization.quantize_dynamic(
+    model, {torch.nn.Linear}, dtype=torch.qint8
+)
+
+model = model.to('cpu')
 model.eval()
+
+torch.set_grad_enabled(False)
+torch.backends.cudnn.benchmark = False
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -50,12 +62,14 @@ def index():
                 response = requests.get(image_url, headers=headers)
                 response.raise_for_status()
                 img = Image.open(BytesIO(response.content)).convert('RGB')
-                img_t = transform(img).unsqueeze(0).to(device)
+                img_t = transform(img).unsqueeze(0)
                 with torch.no_grad():
                     outputs = model(img_t)
                     _, predicted = outputs.max(1)
                 label_idx = predicted.item()
                 prediction = class_names[label_idx]
+                del img_t
+                torch.cuda.empty_cache() if torch.cuda.is_available() else None
             except Exception as e:
                 error = f"Could not process image: {e}"
         else:
