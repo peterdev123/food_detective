@@ -54,6 +54,12 @@ def index():
     prediction = None
     error = None
     image_url = None
+    
+    food_items = [
+        {'id': i, 'name': name} 
+        for i, name in enumerate(class_names)
+    ]
+    
     if request.method == 'POST':
         image_url = request.form.get('img_url')
         if image_url:
@@ -74,7 +80,11 @@ def index():
                 error = f"Could not process image: {e}"
         else:
             error = "Please enter a valid image URL."
-    return render_template('index.html', prediction=prediction, error=error, image_url=image_url)
+    return render_template('index.html', 
+                         prediction=prediction, 
+                         error=error, 
+                         image_url=image_url,
+                         food_items=food_items)  # Add this line to pass food_items
 
 if __name__ == '__main__':
     import os
