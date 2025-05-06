@@ -7,6 +7,13 @@ import torchvision.transforms as transforms
 import torchvision.models as models
 import torch.nn as nn
 import gc
+import psutil
+import os
+
+def print_memory_usage(note=""):
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss / (1024 * 1024)
+    print(f"[MEMORY USAGE] {note}: {mem:.2f} MB")
 
 class_names = [
     "Baked Potato", "Crispy Chicken", "Donut", "Fries", "Hot Dog", "Sandwich", "Taco", "Taquito",
@@ -26,14 +33,23 @@ model.fc = nn.Sequential(
     nn.Linear(512, num_classes)
 )
 
+# Print memory usage after model definition
+print_memory_usage("After model definition (before weights load)")
+
 # Load the state dictionary
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.load_state_dict(torch.load('AI/best_model.pth', map_location=device))
+
+# Print memory usage after model weights load
+print_memory_usage("After model weights load")
 
 # Quantize the model to 8-bit
 model = torch.quantization.quantize_dynamic(
     model, {torch.nn.Linear}, dtype=torch.qint8
 )
+
+# Print memory usage after quantization
+print_memory_usage("After quantization")
 
 model = model.to('cpu')
 model.eval()
@@ -67,6 +83,7 @@ def index():
                 headers = {'User-Agent': 'Mozilla/5.0 (compatible; FoodAI/1.0)'}
                 response = requests.get(image_url, headers=headers)
                 response.raise_for_status()
+                print_memory_usage("After image download")
                 img = Image.open(BytesIO(response.content)).convert('RGB')
                 img_t = transform(img).unsqueeze(0)
                 with torch.no_grad():
@@ -74,6 +91,7 @@ def index():
                     _, predicted = outputs.max(1)
                 label_idx = predicted.item()
                 prediction = class_names[label_idx]
+                print_memory_usage("After prediction")
                 del img_t
                 del outputs
                 gc.collect()
