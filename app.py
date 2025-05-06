@@ -6,6 +6,7 @@ import torch
 import torchvision.transforms as transforms
 import torchvision.models as models
 import torch.nn as nn
+import gc
 
 class_names = [
     "Baked Potato", "Crispy Chicken", "Donut", "Fries", "Hot Dog", "Sandwich", "Taco", "Taquito",
@@ -74,6 +75,8 @@ def index():
                 label_idx = predicted.item()
                 prediction = class_names[label_idx]
                 del img_t
+                del outputs
+                gc.collect()
                 torch.cuda.empty_cache() if torch.cuda.is_available() else None
             except Exception as e:
                 error = f"Could not process image: {e}"
